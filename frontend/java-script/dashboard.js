@@ -20,9 +20,8 @@ class HeatMonitorDashboard {
     }
 
     connectWebSocket() {
-        // Use current domain for WebSocket connection
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
+        // Connect to specific Render backend
+        const wsUrl = 'wss://backvolts.onrender.com';
         
         try {
             this.ws = new WebSocket(wsUrl);
