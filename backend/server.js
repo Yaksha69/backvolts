@@ -28,11 +28,31 @@ app.use(requestMapper + '/data', dataRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
+    console.log('📍 Health route accessed');
+    
+    // Check database connection status
+    const dbState = mongoose.connection.readyState;
+    const dbStatus = dbState === 1 ? 'connected' : 'disconnected';
+    
+    res.json({ 
         status: 'OK', 
         message: 'Server is running',
-        timestamp: new Date().toISOString()
+        database: dbStatus,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
     });
+});
+
+// Readiness probe for Kubernetes/Render
+app.get('/ready', (req, res) => {
+    const dbState = mongoose.connection.readyState;
+    const isReady = dbState === 1;
+    
+    if (isReady) {
+        res.status(200).json({ status: 'ready' });
+    } else {
+        res.status(503).json({ status: 'not ready', database: dbState });
+    }
 });
 
 app.use((req, res) => {
@@ -114,13 +134,38 @@ mongoose.connect(process.env.DB_URI, {
 
     })
     .catch(err => {
-        console.log('Database connection error:', err);
-        console.log('Server will continue running without database...');
+        console.error('❌ Database connection error:', err);
+        console.log('⚠️ Server will continue running without database...');
         
         // Start server even if database fails
         const server = app.listen(process.env.PORT, () => {
-            console.log('Server running on port ', process.env.PORT);
+            console.log('⚠️ Server running on port', process.env.PORT, '(without database)');
+            console.log('📍 Available endpoints:');
+            console.log('   GET  /health');
+            console.log('   GET  /ready');
+            console.log('   GET  /api/v1/data/all');
+            console.log('   POST /api/v1/data/new');
         });
+        
+        // Retry database connection periodically
+        const retryDbConnection = async () => {
+            try {
+                if (mongoose.connection.readyState !== 1) {
+                    console.log('🔄 Attempting to reconnect to database...');
+                    await mongoose.connect(process.env.DB_URI, {
+                        serverSelectionTimeoutMS: 5000,
+                        socketTimeoutMS: 45000,
+                        bufferCommands: false
+                    });
+                    console.log('✅ Database reconnected');
+                }
+            } catch (error) {
+                console.error('❌ Database reconnection failed:', error);
+            }
+        };
+        
+        // Try to reconnect every 30 seconds
+        setInterval(retryDbConnection, 30000);
     });
 
 // Handle process events to prevent early exit

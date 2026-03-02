@@ -82,12 +82,26 @@ class HeatMonitorDashboard {
 
     async fetchLatestData() {
         try {
+            console.log('🔄 Fetching data from API...');
             const response = await fetch('https://backvolts.onrender.com/api/v1/data/all');
+            
+            console.log('📊 Response status:', response.status);
+            console.log('📊 Response headers:', response.headers);
+            
+            if (!response.ok) {
+                console.error('❌ API Response not OK:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('❌ Error response body:', errorText);
+                return;
+            }
+            
             const data = await response.json();
+            console.log('📊 Received data:', data.length, 'records');
             
             if (data && data.length > 0) {
                 // Get only the latest data point
                 const latestData = data[data.length - 1];
+                console.log('📊 Latest data:', latestData);
                 
                 // Only update if this is new data
                 if (this.data.length === 0 || 
@@ -97,11 +111,17 @@ class HeatMonitorDashboard {
                     if (this.data.length > this.maxDataPoints) {
                         this.data.shift();
                     }
+                    console.log('✅ Dashboard updated with new data');
                     this.updateDashboard();
+                } else {
+                    console.log('📊 No new data to update');
                 }
+            } else {
+                console.log('📊 No data available from API');
             }
         } catch (error) {
-            console.error('Polling error:', error);
+            console.error('❌ Polling error:', error);
+            console.error('❌ Error details:', error.message, error.stack);
         }
     }
 
