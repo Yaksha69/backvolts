@@ -22,8 +22,8 @@ class HeatMonitorDashboard {
     }
 
     connectWebSocket() {
-        // Connect to specific Render backend WebSocket
-        const wsUrl = 'wss://monitoring-8wde.onrender.com';
+        // Connect to correct backend URL
+        const wsUrl = 'wss://backvolts.onrender.com';
         
         try {
             this.ws = new WebSocket(wsUrl);
@@ -82,7 +82,7 @@ class HeatMonitorDashboard {
 
     async fetchLatestData() {
         try {
-            const response = await fetch('https://monitoring-8wde.onrender.com/api/v1/data/all');
+            const response = await fetch('https://backvolts.onrender.com/api/v1/data/all');
             const data = await response.json();
             
             if (data && data.length > 0) {
