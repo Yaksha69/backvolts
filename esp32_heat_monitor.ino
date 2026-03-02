@@ -11,7 +11,7 @@ const char* ssid = "heat";
 const char* password = "12345678";
 
 // ================= BACKEND API SETTINGS =================
-String backendUrl = "https://backvolts.onrender.com"; // 🔥 Replace with your Render app URL
+String backendUrl = "https://monitoring-8wde.onrender.com"; // 🔥 Replace with your Render app URL
 String apiEndpoint = "/api/v1/data/new";
 
 // ================= SENSOR PINS =================

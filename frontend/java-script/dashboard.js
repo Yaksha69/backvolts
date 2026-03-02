@@ -20,8 +20,8 @@ class HeatMonitorDashboard {
     }
 
     connectWebSocket() {
-        // Connect to specific Render backend
-        const wsUrl = 'wss://backvolts.onrender.com';
+        // Connect to specific Render backend WebSocket
+        const wsUrl = 'wss://monitoring-8wde.onrender.com';
         
         try {
             this.ws = new WebSocket(wsUrl);
