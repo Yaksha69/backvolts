@@ -9,6 +9,8 @@ class HeatMonitorDashboard {
         this.maxDataPoints = 20;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.pollingInterval = null;
+        this.usePolling = false;
         
         this.init();
     }
@@ -30,6 +32,11 @@ class HeatMonitorDashboard {
                 console.log('WebSocket connected');
                 this.updateConnectionStatus('connected');
                 this.reconnectAttempts = 0;
+                this.usePolling = false;
+                if (this.pollingInterval) {
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                }
             };
             
             this.ws.onmessage = (event) => {
@@ -40,17 +47,61 @@ class HeatMonitorDashboard {
             this.ws.onclose = () => {
                 console.log('WebSocket disconnected');
                 this.updateConnectionStatus('disconnected');
+                this.startPolling();
                 this.attemptReconnect();
             };
             
             this.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
                 this.updateConnectionStatus('error');
+                this.startPolling();
             };
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
             this.updateConnectionStatus('error');
+            this.startPolling();
             this.attemptReconnect();
+        }
+    }
+
+    startPolling() {
+        if (this.pollingInterval) return;
+        
+        console.log('Starting polling fallback');
+        this.usePolling = true;
+        this.updateConnectionStatus('connected'); // Show as connected even with polling
+        
+        // Poll for new data every 2 seconds
+        this.pollingInterval = setInterval(() => {
+            this.fetchLatestData();
+        }, 2000);
+        
+        // Initial data fetch
+        this.fetchLatestData();
+    }
+
+    async fetchLatestData() {
+        try {
+            const response = await fetch('https://monitoring-8wde.onrender.com/api/v1/data/all');
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                // Get only the latest data point
+                const latestData = data[data.length - 1];
+                
+                // Only update if this is new data
+                if (this.data.length === 0 || 
+                    new Date(latestData.createdAt) > new Date(this.data[this.data.length - 1].createdAt)) {
+                    
+                    this.data.push(latestData);
+                    if (this.data.length > this.maxDataPoints) {
+                        this.data.shift();
+                    }
+                    this.updateDashboard();
+                }
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
         }
     }
 
