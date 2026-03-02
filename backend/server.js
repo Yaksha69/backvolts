@@ -16,8 +16,24 @@ app.use(cors({
     methods: ['GET', 'POST'],
 }));
 
-
 app.use(express.json());
+
+// Define routes before database connection
+const requestMapper = '/api/v1';
+app.use(requestMapper + '/data', dataRoutes);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        message: 'Server is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.use((req, res) => {
+    res.status(404).json({ error: "No such method exists" });
+});
 
 // Connect to MongoDB
 mongoose.connect(process.env.DB_URI, {
@@ -118,11 +134,4 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
     console.log('SIGINT received, shutting down gracefully');
     process.exit(0);
-});
-
-const requestMapper = '/api/v1';
-app.use(requestMapper + '/data', dataRoutes);
-
-app.use((req, res) => {
-    res.status(404).json({ error: "No such method exists" });
 });
