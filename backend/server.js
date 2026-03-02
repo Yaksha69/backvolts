@@ -87,8 +87,33 @@ mongoose.connect(process.env.DB_URI)
 
     })
     .catch(err => {
-        console.log(err);
+        console.log('Database connection error:', err);
+        console.log('Server will continue running without database...');
+        
+        // Start server even if database fails
+        const server = app.listen(process.env.PORT, () => {
+            console.log('Server running on port ', process.env.PORT);
+        });
     });
+
+// Handle process events to prevent early exit
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    process.exit(0);
+});
 
 const requestMapper = '/api/v1';
 app.use(requestMapper + '/data', dataRoutes);

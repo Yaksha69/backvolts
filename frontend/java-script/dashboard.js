@@ -20,7 +20,9 @@ class HeatMonitorDashboard {
     }
 
     connectWebSocket() {
-        const wsUrl = `ws://localhost:${process.env.PORT || 3001}`;
+        // Use current domain for WebSocket connection
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
         
         try {
             this.ws = new WebSocket(wsUrl);

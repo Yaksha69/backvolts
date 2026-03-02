@@ -11,7 +11,7 @@ const char* ssid = "heat";
 const char* password = "12345678";
 
 // ================= BACKEND API SETTINGS =================
-String backendUrl = "http://your-backend-server.com"; // 🔥 Replace with your backend server URL
+String backendUrl = "https://your-app-name.onrender.com"; // 🔥 Replace with your Render app URL
 String apiEndpoint = "/api/v1/data/new";
 
 // ================= SENSOR PINS =================
