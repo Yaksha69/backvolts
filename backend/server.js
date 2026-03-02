@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+console.log('Starting server...');
+console.log('PORT:', process.env.PORT);
+console.log('DB_URI:', process.env.DB_URI ? 'SET' : 'NOT SET');
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -39,17 +43,19 @@ app.use((req, res) => {
 mongoose.connect(process.env.DB_URI, {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
-    bufferMaxEntries: 0,
     bufferCommands: false
 })
     .then(() => {
         const server = app.listen(process.env.PORT, () => {
-            console.log('Connected to the database...');
-            console.log('Listening on port ', process.env.PORT);
+            console.log('✅ Connected to the database...');
+            console.log('✅ Server listening on port:', process.env.PORT);
+            console.log('✅ Health check available at: /health');
+            console.log('✅ API available at: /api/v1/data');
         });
 
         // WebSocket server initialization
         const wss = new WebSocketServer({ server });
+        console.log('✅ WebSocket server initialized');
 
         let lastSentData = null;
 
@@ -119,19 +125,24 @@ mongoose.connect(process.env.DB_URI, {
 
 // Handle process events to prevent early exit
 process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err);
+    console.error('❌ Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
+    console.log('📡 SIGTERM received, shutting down gracefully');
     process.exit(0);
 });
 
 process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
+    console.log('📡 SIGINT received, shutting down gracefully');
     process.exit(0);
+});
+
+// Handle any unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+    console.error('❌ Unhandled Promise Rejection:', err);
 });
