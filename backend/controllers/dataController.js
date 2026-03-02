@@ -4,10 +4,10 @@ const mongoose = require('mongoose')
 
 
 const addData = async(req, res) =>{
-    const {voltage, current, power, energy} = req.body
+    const {temperature, humidity, heatIndex, light} = req.body
 
     try{
-        const new_data = await Data.create({voltage, current, power, energy})
+        const new_data = await Data.create({temperature, humidity, heatIndex, light})
         res.status(200).json(new_data)
     }catch(err){
         res.status(500).json({error: err.message})

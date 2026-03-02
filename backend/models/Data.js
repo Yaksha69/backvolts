@@ -3,19 +3,19 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 
 const DataSchema = new Schema({
-    voltage: {
+    temperature: {
         type: Number,
         required: true,
     },
-    current: {
+    humidity: {
         type: Number,
         required: true
     },
-    power: {
+    heatIndex: {
         type: Number,
         required: true
     },
-    energy: {
+    light: {
         type: Number,
         required: true
     }

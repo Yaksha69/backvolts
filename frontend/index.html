@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heat Monitor Dashboard</title>
+    <link rel="stylesheet" href="index.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌡️ Heat Monitor Dashboard</h1>
+            <div class="status-indicator" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="charts-grid">
+                <div class="chart-container">
+                    <h3>Temperature</h3>
+                    <canvas id="tempChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Humidity</h3>
+                    <canvas id="humidityChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Heat Index</h3>
+                    <canvas id="heatIndexChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Light Level</h3>
+                    <canvas id="lightChart"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="java-script/dashboard.js"></script>
+</body>
+</html>
