@@ -11,9 +11,14 @@
     <div class="container">
         <header>
             <h1>🌡️ Heat Monitor Dashboard</h1>
-            <div class="status-indicator" id="connectionStatus">
-                <span class="status-dot"></span>
-                <span class="status-text">Connecting...</span>
+            <div class="header-controls">
+                <button id="smsSettingsBtn" class="sms-settings-btn">
+                    📱 SMS Settings
+                </button>
+                <div class="status-indicator" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
             </div>
         </header>
 
@@ -37,6 +42,57 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- SMS Settings Modal -->
+    <div id="smsModal" class="modal">
+        <div class="modal-content compact">
+            <div class="modal-header">
+                <h2>📱 SMS Alerts</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Phone Numbers:</label>
+                    <div class="phone-numbers-container">
+                        <div class="phone-numbers-header">
+                            <span>Number</span>
+                            <span>Action</span>
+                        </div>
+                        <div class="phone-numbers-list" id="phoneNumbersList">
+                            <!-- Phone numbers will be added here dynamically -->
+                        </div>
+                        <div class="phone-number-input-row">
+                            <input type="text" id="newPhoneNumber" placeholder="Enter phone number">
+                            <button type="button" id="addPhoneNumber" class="btn-add">+</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cooldownMinutes">Cooldown (min):</label>
+                        <input type="number" id="cooldownMinutes" value="30" min="1" max="1440">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enableAlerts" checked>
+                        Enable SMS Alerts
+                    </label>
+                </div>
+                <div class="thresholds-grid">
+                    <label><input type="checkbox" id="cautionAlert" checked> Caution (≥27°C)</label>
+                    <label><input type="checkbox" id="extremeCautionAlert" checked> Extreme Caution (≥35°C)</label>
+                    <label><input type="checkbox" id="dangerAlert" checked> Danger (≥40°C)</label>
+                    <label><input type="checkbox" id="extremeDangerAlert" checked> Extreme Danger (≥42°C)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveSmsSettings" class="btn-primary">Save</button>
+                <button id="testSms" class="btn-secondary">Test</button>
+                <button id="cancelSmsSettings" class="btn-cancel">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script src="java-script/dashboard.js"></script>

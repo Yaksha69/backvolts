@@ -12,12 +12,28 @@ class HeatMonitorDashboard {
         this.pollingInterval = null;
         this.usePolling = false;
         
+        // SMS settings
+        this.smsSettings = {
+            phoneNumbers: [],
+            enableAlerts: false,
+            thresholds: {
+                caution: true,
+                extremeCaution: true,
+                danger: true,
+                extremeDanger: true
+            },
+            cooldownMinutes: 30,
+            lastAlertTimes: {}
+        };
+        
         this.init();
     }
 
     init() {
         this.connectWebSocket();
         this.initCharts();
+        this.initSmsModal();
+        this.loadSmsSettings();
         this.updateConnectionStatus('connecting');
     }
 
@@ -162,6 +178,7 @@ class HeatMonitorDashboard {
         if (this.data.length === 0) return;
         
         this.updateCharts();
+        this.checkHeatIndexAlerts();
     }
 
     initCharts() {
@@ -346,6 +363,201 @@ class HeatMonitorDashboard {
 
     showAlert(message, type = 'info') {
         console.log(message);
+    }
+
+    // SMS Modal and Alert Methods
+    initSmsModal() {
+        const modal = document.getElementById('smsModal');
+        const btn = document.getElementById('smsSettingsBtn');
+        const span = document.getElementsByClassName('close')[0];
+        const cancelBtn = document.getElementById('cancelSmsSettings');
+        const saveBtn = document.getElementById('saveSmsSettings');
+        const testBtn = document.getElementById('testSms');
+        const addBtn = document.getElementById('addPhoneNumber');
+
+        btn.onclick = () => this.openSmsModal();
+        span.onclick = () => this.closeSmsModal();
+        cancelBtn.onclick = () => this.closeSmsModal();
+        saveBtn.onclick = () => this.saveSmsSettings();
+        testBtn.onclick = () => this.testSms();
+        addBtn.onclick = () => this.addPhoneNumber();
+
+        // Handle Enter key in phone number input
+        document.getElementById('newPhoneNumber').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.addPhoneNumber();
+            }
+        });
+
+        window.onclick = (event) => {
+            if (event.target === modal) {
+                this.closeSmsModal();
+            }
+        };
+    }
+
+    openSmsModal() {
+        const modal = document.getElementById('smsModal');
+        modal.style.display = 'block';
+        this.populateSmsForm();
+    }
+
+    closeSmsModal() {
+        const modal = document.getElementById('smsModal');
+        modal.style.display = 'none';
+    }
+
+    populateSmsForm() {
+        this.renderPhoneNumbersList();
+        document.getElementById('enableAlerts').checked = this.smsSettings.enableAlerts;
+        document.getElementById('cautionAlert').checked = this.smsSettings.thresholds.caution;
+        document.getElementById('extremeCautionAlert').checked = this.smsSettings.thresholds.extremeCaution;
+        document.getElementById('dangerAlert').checked = this.smsSettings.thresholds.danger;
+        document.getElementById('extremeDangerAlert').checked = this.smsSettings.thresholds.extremeDanger;
+        document.getElementById('cooldownMinutes').value = this.smsSettings.cooldownMinutes;
+    }
+
+    saveSmsSettings() {
+        this.smsSettings.enableAlerts = document.getElementById('enableAlerts').checked;
+        this.smsSettings.thresholds.caution = document.getElementById('cautionAlert').checked;
+        this.smsSettings.thresholds.extremeCaution = document.getElementById('extremeCautionAlert').checked;
+        this.smsSettings.thresholds.danger = document.getElementById('dangerAlert').checked;
+        this.smsSettings.thresholds.extremeDanger = document.getElementById('extremeDangerAlert').checked;
+        this.smsSettings.cooldownMinutes = parseInt(document.getElementById('cooldownMinutes').value);
+
+        localStorage.setItem('smsSettings', JSON.stringify(this.smsSettings));
+        this.showAlert('SMS settings saved successfully!', 'success');
+        this.closeSmsModal();
+    }
+
+    loadSmsSettings() {
+        const saved = localStorage.getItem('smsSettings');
+        if (saved) {
+            this.smsSettings = JSON.parse(saved);
+        }
+    }
+
+    async testSms() {
+        const testMessage = 'Test message from Heat Monitor Dashboard';
+        await this.sendSms(testMessage);
+        this.showAlert('Test SMS sent!', 'success');
+    }
+
+    checkHeatIndexAlerts() {
+        if (!this.smsSettings.enableAlerts || this.data.length === 0) return;
+
+        const latestData = this.data[this.data.length - 1];
+        const heatIndex = latestData.heatIndex;
+        const temp = latestData.temperature;
+        const humidity = latestData.humidity;
+        const light = latestData.light;
+
+        let alertLevel = null;
+        let message = '';
+
+        if (heatIndex >= 42 && this.smsSettings.thresholds.extremeDanger) {
+            alertLevel = 'extremeDanger';
+            message = `[EMERGENCY] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${light} lux\nExtreme heat. Stay inside, monitor everyone for heat illness, and act immediately if needed.`;
+        } else if (heatIndex >= 40 && this.smsSettings.thresholds.danger) {
+            alertLevel = 'danger';
+            message = `[EMERGENCY] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${light} lux\nSevere heat. Stay indoors, hydrate often, and avoid outdoor activity.`;
+        } else if (heatIndex >= 35 && this.smsSettings.thresholds.extremeCaution) {
+            alertLevel = 'extremeCaution';
+            message = `[ALERT] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${light} lux\nHigh heat. Minimize outdoor activity, drink water, and watch children, seniors, and pets.`;
+        } else if (heatIndex >= 27 && this.smsSettings.thresholds.caution) {
+            alertLevel = 'caution';
+            message = `[ALERT] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${light} lux\nHeat rising. Stay hydrated, take breaks in shade, and limit outdoor activity.`;
+        }
+
+        if (alertLevel && this.shouldSendAlert(alertLevel)) {
+            this.sendSms(message);
+            this.updateLastAlertTime(alertLevel);
+        }
+    }
+
+    shouldSendAlert(alertLevel) {
+        if (!this.smsSettings.lastAlertTimes[alertLevel]) {
+            return true;
+        }
+
+        const lastAlertTime = new Date(this.smsSettings.lastAlertTimes[alertLevel]);
+        const now = new Date();
+        const cooldownMs = this.smsSettings.cooldownMinutes * 60 * 1000;
+
+        return (now - lastAlertTime) > cooldownMs;
+    }
+
+    updateLastAlertTime(alertLevel) {
+        this.smsSettings.lastAlertTimes[alertLevel] = new Date().toISOString();
+        localStorage.setItem('smsSettings', JSON.stringify(this.smsSettings));
+    }
+
+    async sendSms(message) {
+        if (this.smsSettings.phoneNumbers.length === 0) {
+            console.warn('No phone numbers configured');
+            return;
+        }
+
+        try {
+            const response = await fetch('https://backvolts.onrender.com/api/v1/sms/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phone_number: this.smsSettings.phoneNumbers.join(','),
+                    message: message
+                })
+            });
+
+            if (!response.ok) {
+                console.error('SMS sending failed:', response.status, response.statusText);
+            } else {
+                console.log('SMS sent successfully');
+            }
+        } catch (error) {
+            console.error('Error sending SMS:', error);
+        }
+    }
+
+    // Phone Number Management Methods
+    renderPhoneNumbersList() {
+        const listContainer = document.getElementById('phoneNumbersList');
+        listContainer.innerHTML = '';
+
+        this.smsSettings.phoneNumbers.forEach((phoneNumber, index) => {
+            const row = document.createElement('div');
+            row.className = 'phone-number-row';
+            row.innerHTML = `
+                <span>${phoneNumber}</span>
+                <span><button class="btn-remove" data-index="${index}">Remove</button></span>
+            `;
+            listContainer.appendChild(row);
+        });
+
+        // Add event listeners to remove buttons
+        listContainer.querySelectorAll('.btn-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                this.removePhoneNumber(index);
+            });
+        });
+    }
+
+    addPhoneNumber() {
+        const input = document.getElementById('newPhoneNumber');
+        const phoneNumber = input.value.trim();
+
+        if (phoneNumber && !this.smsSettings.phoneNumbers.includes(phoneNumber)) {
+            this.smsSettings.phoneNumbers.push(phoneNumber);
+            input.value = '';
+            this.renderPhoneNumbersList();
+        }
+    }
+
+    removePhoneNumber(index) {
+        this.smsSettings.phoneNumbers.splice(index, 1);
+        this.renderPhoneNumbersList();
     }
 }
 

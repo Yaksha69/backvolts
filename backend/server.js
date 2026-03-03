@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 
 // Import your data routes
 const dataRoutes = require('./routes/dataRoutes');
+const smsRoutes = require('./routes/smsRoutes');
 const Data = require('./models/Data');
 
 const app = express();
@@ -25,6 +26,7 @@ app.use(express.json());
 // Define routes before database connection
 const requestMapper = '/api/v1';
 app.use(requestMapper + '/data', dataRoutes);
+app.use(requestMapper + '/sms', smsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

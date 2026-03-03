@@ -11,7 +11,7 @@ const char* ssid = "heat";
 const char* password = "12345678";
 
 // ================= BACKEND API SETTINGS =================
-String backendUrl = "https://backvolts.onrender.com"; // 🔥 Replace with your Render app URL
+String backendUrl = "https://backvolts.onrender.com"; // 🔥 Your backend URL
 String apiEndpoint = "/api/v1/data/new";
 
 // ================= SENSOR PINS =================
@@ -29,7 +29,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // ================= TIMERS =================
 unsigned long lastUploadTime = 0;
-const long uploadInterval = 10000; // Upload every 10 seconds
+const long uploadInterval = 120000;  // 2 minutes
 
 unsigned long lastSensorReadTime = 0;
 const long sensorInterval = 2000;
