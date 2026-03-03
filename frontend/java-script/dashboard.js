@@ -26,6 +26,10 @@ class HeatMonitorDashboard {
             lastAlertTimes: {}
         };
         
+        // Self-ping settings
+        this.pingInterval = null;
+        this.pingUrl = 'https://backvolts.onrender.com/api/v1/data';
+        
         this.init();
     }
 
@@ -34,6 +38,7 @@ class HeatMonitorDashboard {
         this.initCharts();
         this.initSmsModal();
         this.loadSmsSettings();
+        this.startSelfPing();
         this.updateConnectionStatus('connecting');
     }
 
@@ -679,6 +684,45 @@ class HeatMonitorDashboard {
             min: Math.max(dynamicMin, 0),
             max: dynamicMax
         };
+    }
+
+    // Self-ping to keep server awake
+    startSelfPing() {
+        // Ping every 5 minutes (300,000 milliseconds)
+        this.pingInterval = setInterval(() => {
+            this.pingServer();
+        }, 300000);
+        
+        // Also ping immediately on start
+        this.pingServer();
+        console.log('🔄 Self-ping started - server will stay awake');
+    }
+
+    async pingServer() {
+        try {
+            const response = await fetch(this.pingUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                console.log('📡 Server ping successful - keeping server awake');
+            } else {
+                console.log('⚠️ Server ping warning:', response.status);
+            }
+        } catch (error) {
+            console.log('❌ Server ping failed:', error.message);
+        }
+    }
+
+    stopSelfPing() {
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+            console.log('⏹️ Self-ping stopped');
+        }
     }
 }
 
