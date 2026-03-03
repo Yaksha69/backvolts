@@ -519,16 +519,16 @@ class HeatMonitorDashboard {
 
         if (heatIndex >= 42 && this.smsSettings.thresholds.extremeDanger) {
             alertLevel = 'extremeDanger';
-            message = `[EMERGENCY] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${lightCategory}\nExtreme heat. Stay inside, monitor everyone for heat illness, and act immediately if needed.`;
+            message = `[EMERGENCY] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nExtreme heat. Stay inside, monitor everyone for heat illness, and act immediately if needed.`;
         } else if (heatIndex >= 40 && this.smsSettings.thresholds.danger) {
             alertLevel = 'danger';
-            message = `[EMERGENCY] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${lightCategory}\nSevere heat. Stay indoors, hydrate often, and avoid outdoor activity.`;
+            message = `[EMERGENCY] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nSevere heat. Stay indoors, hydrate often, and avoid outdoor activity.`;
         } else if (heatIndex >= 35 && this.smsSettings.thresholds.extremeCaution) {
             alertLevel = 'extremeCaution';
-            message = `[ALERT] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${lightCategory}\nHigh heat. Minimize outdoor activity, drink water, and watch children, seniors, and pets.`;
+            message = `[ALERT] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nHigh heat. Minimize outdoor activity, drink water, and watch children, seniors, and pets.`;
         } else if (heatIndex >= 27 && this.smsSettings.thresholds.caution) {
             alertLevel = 'caution';
-            message = `[ALERT] Heat index: ${heatIndex}°C | Temp: ${temp}°C | Humidity: ${humidity}% | Light: ${lightCategory}\nHeat rising. Stay hydrated, take breaks in shade, and limit outdoor activity.`;
+            message = `[ALERT] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nHeat rising. Stay hydrated, take breaks in shade, and limit outdoor activity.`;
         }
 
         if (alertLevel && this.shouldSendAlert(alertLevel)) {
