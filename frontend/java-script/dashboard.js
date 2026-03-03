@@ -28,7 +28,7 @@ class HeatMonitorDashboard {
         
         // Self-ping settings
         this.pingInterval = null;
-        this.pingUrl = 'https://backvolts.onrender.com/api/v1/data';
+        this.pingUrl = 'https://backvolts.onrender.com/api/v1/data/all';
         
         this.init();
     }
