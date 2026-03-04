@@ -35,6 +35,35 @@ class HeatMonitorDashboard {
         this.init();
     }
 
+    startSelfPing() {
+        if (this.pingInterval) return;
+
+        const ping = async () => {
+            try {
+                await fetch(this.pingUrl, {
+                    method: 'GET',
+                    cache: 'no-store',
+                });
+            } catch (error) {
+                console.warn('Self-ping failed:', error);
+            }
+        };
+
+        // Initial ping to wake backend (e.g., Render free tier)
+        ping();
+
+        // Repeat periodically to keep backend warm
+        this.pingInterval = setInterval(ping, 5 * 60 * 1000);
+
+        // Clear interval when page is about to be unloaded
+        window.addEventListener('beforeunload', () => {
+            if (this.pingInterval) {
+                clearInterval(this.pingInterval);
+                this.pingInterval = null;
+            }
+        });
+    }
+
     init() {
         this.connectWebSocket();
         this.initCharts();

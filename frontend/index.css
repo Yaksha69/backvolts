@@ -265,7 +265,7 @@ header h1 {
     padding: 0;
     position: fixed;
     width: 90%;
-    max-width: 450px;
+    max-width: 460px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: modalSlideIn 0.3s ease-out;
     top: 50%;
@@ -321,6 +321,7 @@ header h1 {
 
 .modal-body {
     padding: 20px 22px;
+    background: #ffffff;
 }
 
 .form-group {
@@ -460,6 +461,30 @@ header h1 {
 
 .phone-number-input-row input::placeholder {
     color: #adb5bd;
+}
+
+.btn-add {
+    background: #667eea;
+    color: #fff;
+    border: none;
+    padding: 0 14px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    border-left: 1px solid #e1e8ed;
+    transition: background 0.25s ease, transform 0.15s ease;
+}
+
+.btn-add:hover {
+    background: #5a67d8;
+    transform: translateY(-1px);
+}
+
+.btn-add:active {
+    transform: translateY(0);
 }
 
 .custom-alert-actions {
@@ -634,6 +659,15 @@ header h1 {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.custom-alerts-container,
+.scheduled-alerts-container {
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #f8f9fa;
+    min-height: 48px;
 }
 
 .form-group h4::before {
