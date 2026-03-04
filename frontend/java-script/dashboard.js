@@ -29,8 +29,9 @@ class HeatMonitorDashboard {
             scheduledAlerts: []
         };
 
+        this.apiBase = 'https://backvolts.onrender.com/api/v1';
         this.pingInterval = null;
-        this.pingUrl = 'https://backvolts.onrender.com/api/v1/data/all';
+        this.pingUrl = `${this.apiBase}/data/all`;
 
         this.init();
     }
@@ -130,7 +131,7 @@ class HeatMonitorDashboard {
 
     async fetchLatestData() {
         try {
-            const response = await fetch('https://backvolts.onrender.com/api/v1/data/all');
+            const response = await fetch(`${this.apiBase}/data/all`);
             if (!response.ok) {
                 console.error('API Response not OK:', response.status);
                 return;
@@ -228,6 +229,17 @@ class HeatMonitorDashboard {
         updateChart(this.humidityChart, humidities, getRange(humidities));
         updateChart(this.heatIndexChart, heatIndexes, getRange(heatIndexes));
         updateChart(this.lightChart, lightLevels, getRange(lightLevels));
+
+        // Update light status badge (Dark / Cloudy / Sunny)
+        const latestLight = lightLevels[lightLevels.length - 1];
+        const lightStatusEl = document.getElementById('lightStatusLabel');
+        if (lightStatusEl && typeof latestLight === 'number') {
+            let label = 'Unknown';
+            if (latestLight < 30) label = 'Dark';
+            else if (latestLight < 70) label = 'Cloudy';
+            else label = 'Sunny';
+            lightStatusEl.textContent = `(${label})`;
+        }
     }
 
     updateConnectionStatus(status) {
@@ -245,15 +257,379 @@ class HeatMonitorDashboard {
         }
     }
 
-    showAlert(message, type = 'info') { console.log(message); }
+    showAlert(message, type = 'info') { console.log(type.toUpperCase() + ':', message); }
 
+    // =========================
     // SMS / Alerts methods
-    initSmsModal() { /* your modal init code here */ }
-    loadSmsSettings() { /* fetch from backend */ }
-    checkHeatIndexAlerts() { /* your alerts logic */ }
+    // =========================
 
-    // More methods (custom alerts, scheduled alerts, phone numbers)
-    // For brevity, you can reuse your original functions here
+    initSmsModal() {
+        const modal = document.getElementById('smsModal');
+        const openBtn = document.getElementById('smsSettingsBtn');
+        const closeIcon = modal.querySelector('.close');
+        const cancelBtn = document.getElementById('cancelSmsSettings');
+        const saveBtn = document.getElementById('saveSmsSettings');
+        const testBtn = document.getElementById('testSms');
+
+        const phoneInput = document.getElementById('newPhoneNumber');
+        const addPhoneBtn = document.getElementById('addPhoneNumber');
+        const phoneList = document.getElementById('phoneNumbersList');
+        const enableAlertsCheckbox = document.getElementById('enableAlerts');
+        const cooldownInput = document.getElementById('cooldownMinutes');
+        const customAlertsContainer = document.getElementById('customAlertsContainer');
+        const addCustomAlertBtn = document.getElementById('addCustomAlert');
+        const scheduledAlertsContainer = document.getElementById('scheduledAlertsContainer');
+        const addScheduledAlertBtn = document.getElementById('addScheduledAlert');
+
+        if (!modal || !openBtn) return;
+
+        const openModal = () => {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            this.renderPhoneNumbers(phoneList);
+            enableAlertsCheckbox.checked = this.smsSettings.enableAlerts;
+            cooldownInput.value = this.smsSettings.cooldownMinutes;
+            this.renderCustomAlerts(customAlertsContainer);
+            this.renderScheduledAlerts(scheduledAlertsContainer);
+        };
+
+        const closeModal = () => {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+
+        openBtn.addEventListener('click', openModal);
+        closeIcon.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.style.display !== 'none') {
+                closeModal();
+            }
+        });
+
+        addPhoneBtn.addEventListener('click', () => {
+            const raw = phoneInput.value.trim();
+            if (!raw) return;
+
+            if (this.smsSettings.phoneNumbers.includes(raw)) {
+                this.showAlert('Phone number already added', 'info');
+                return;
+            }
+
+            this.smsSettings.phoneNumbers.push(raw);
+            phoneInput.value = '';
+            this.renderPhoneNumbers(phoneList);
+            this.persistSmsSettings();
+        });
+
+        enableAlertsCheckbox.addEventListener('change', () => {
+            this.smsSettings.enableAlerts = enableAlertsCheckbox.checked;
+            this.persistSmsSettings();
+        });
+
+        cooldownInput.addEventListener('change', () => {
+            const value = parseInt(cooldownInput.value, 10);
+            if (!isNaN(value) && value > 0) {
+                this.smsSettings.cooldownMinutes = value;
+                this.persistSmsSettings();
+            }
+        });
+
+        saveBtn.addEventListener('click', () => {
+            this.persistSmsSettings();
+            this.showAlert('SMS settings saved', 'info');
+            closeModal();
+        });
+
+        testBtn.addEventListener('click', () => {
+            this.showAlert('Test SMS would be sent here (hook up backend API).', 'info');
+        });
+
+        // Custom alerts
+        if (addCustomAlertBtn) {
+            addCustomAlertBtn.addEventListener('click', () => {
+                const condition = prompt('Enter alert condition (e.g. heatIndex > 35):');
+                if (!condition) return;
+                const message = prompt('Enter SMS message to send:');
+                if (!message) return;
+
+                this.smsSettings.customAlerts.push({
+                    id: Date.now().toString(),
+                    condition,
+                    message,
+                });
+
+                this.renderCustomAlerts(customAlertsContainer);
+                this.persistSmsSettings();
+            });
+        }
+
+        // Scheduled alerts
+        if (addScheduledAlertBtn) {
+            addScheduledAlertBtn.addEventListener('click', () => {
+                const time = prompt('Enter time (HH:MM, 24h) for the alert:');
+                if (!time) return;
+                const message = prompt('Enter SMS message to send at that time:');
+                if (!message) return;
+
+                this.smsSettings.scheduledAlerts.push({
+                    id: Date.now().toString(),
+                    time,
+                    message,
+                });
+
+                this.renderScheduledAlerts(scheduledAlertsContainer);
+                this.persistSmsSettings();
+            });
+        }
+    }
+
+    renderPhoneNumbers(listEl) {
+        if (!listEl) return;
+        listEl.innerHTML = '';
+
+        if (!this.smsSettings.phoneNumbers.length) {
+            const emptyRow = document.createElement('div');
+            emptyRow.className = 'phone-number-row';
+            emptyRow.innerHTML = '<span>No numbers added yet</span><span></span>';
+            listEl.appendChild(emptyRow);
+            return;
+        }
+
+        this.smsSettings.phoneNumbers.forEach((number, index) => {
+            const row = document.createElement('div');
+            row.className = 'phone-number-row';
+
+            const numberSpan = document.createElement('span');
+            numberSpan.textContent = number;
+
+            const actionSpan = document.createElement('span');
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn-remove';
+            removeBtn.textContent = 'Remove';
+            removeBtn.addEventListener('click', () => {
+                this.smsSettings.phoneNumbers.splice(index, 1);
+                this.renderPhoneNumbers(listEl);
+                this.persistSmsSettings();
+            });
+
+            actionSpan.appendChild(removeBtn);
+            row.appendChild(numberSpan);
+            row.appendChild(actionSpan);
+
+            listEl.appendChild(row);
+        });
+    }
+
+    renderCustomAlerts(container) {
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!this.smsSettings.customAlerts.length) {
+            const empty = document.createElement('div');
+            empty.className = 'custom-alert-item';
+            empty.innerHTML = '<div class="custom-alert-info"><span class="custom-alert-condition">No custom alerts yet</span></div>';
+            container.appendChild(empty);
+            return;
+        }
+
+        this.smsSettings.customAlerts.forEach((alert, index) => {
+            const item = document.createElement('div');
+            item.className = 'custom-alert-item';
+
+            const info = document.createElement('div');
+            info.className = 'custom-alert-info';
+
+            const cond = document.createElement('div');
+            cond.className = 'custom-alert-condition';
+            cond.textContent = alert.condition;
+
+            const msg = document.createElement('div');
+            msg.className = 'custom-alert-message';
+            msg.textContent = alert.message;
+
+            info.appendChild(cond);
+            info.appendChild(msg);
+
+            const actions = document.createElement('div');
+            actions.className = 'custom-alert-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-edit';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => {
+                const newCondition = prompt('Edit condition:', alert.condition);
+                if (!newCondition) return;
+                const newMessage = prompt('Edit message:', alert.message);
+                if (!newMessage) return;
+                this.smsSettings.customAlerts[index] = {
+                    ...alert,
+                    condition: newCondition,
+                    message: newMessage,
+                };
+                this.renderCustomAlerts(container);
+                this.persistSmsSettings();
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-delete';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', () => {
+                this.smsSettings.customAlerts.splice(index, 1);
+                this.renderCustomAlerts(container);
+                this.persistSmsSettings();
+            });
+
+            actions.appendChild(editBtn);
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(info);
+            item.appendChild(actions);
+
+            container.appendChild(item);
+        });
+    }
+
+    renderScheduledAlerts(container) {
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!this.smsSettings.scheduledAlerts.length) {
+            const empty = document.createElement('div');
+            empty.className = 'custom-alert-item';
+            empty.innerHTML = '<div class="custom-alert-info"><span class="custom-alert-condition">No scheduled alerts yet</span></div>';
+            container.appendChild(empty);
+            return;
+        }
+
+        this.smsSettings.scheduledAlerts.forEach((alert, index) => {
+            const item = document.createElement('div');
+            item.className = 'custom-alert-item';
+
+            const info = document.createElement('div');
+            info.className = 'custom-alert-info';
+
+            const cond = document.createElement('div');
+            cond.className = 'custom-alert-condition';
+            cond.textContent = `At ${alert.time}`;
+
+            const msg = document.createElement('div');
+            msg.className = 'custom-alert-message';
+            msg.textContent = alert.message;
+
+            info.appendChild(cond);
+            info.appendChild(msg);
+
+            const actions = document.createElement('div');
+            actions.className = 'scheduled-alert-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-edit';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => {
+                const newTime = prompt('Edit time (HH:MM, 24h):', alert.time);
+                if (!newTime) return;
+                const newMessage = prompt('Edit message:', alert.message);
+                if (!newMessage) return;
+                this.smsSettings.scheduledAlerts[index] = {
+                    ...alert,
+                    time: newTime,
+                    message: newMessage,
+                };
+                this.renderScheduledAlerts(container);
+                this.persistSmsSettings();
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-delete';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.addEventListener('click', () => {
+                this.smsSettings.scheduledAlerts.splice(index, 1);
+                this.renderScheduledAlerts(container);
+                this.persistSmsSettings();
+            });
+
+            actions.appendChild(editBtn);
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(info);
+            item.appendChild(actions);
+
+            container.appendChild(item);
+        });
+    }
+
+    async loadSmsSettings() {
+        // 1) Try loading from backend API
+        try {
+            const res = await fetch(`${this.apiBase}/sms-settings`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+            });
+
+            if (res.ok) {
+                const remote = await res.json();
+                this.smsSettings = {
+                    ...this.smsSettings,
+                    ...remote,
+                    thresholds: { ...this.smsSettings.thresholds, ...(remote.thresholds || {}) },
+                };
+                // Mirror into localStorage for faster reloads / offline
+                localStorage.setItem('heatMonitorSmsSettings', JSON.stringify(this.smsSettings));
+                return;
+            }
+        } catch (e) {
+            console.warn('Failed to load SMS settings from backend, falling back to localStorage', e);
+        }
+
+        // 2) Fallback to localStorage
+        try {
+            const raw = localStorage.getItem('heatMonitorSmsSettings');
+            if (!raw) return;
+
+            const parsed = JSON.parse(raw);
+            this.smsSettings = {
+                ...this.smsSettings,
+                ...parsed,
+                thresholds: { ...this.smsSettings.thresholds, ...(parsed.thresholds || {}) },
+            };
+        } catch (e) {
+            console.warn('Failed to load SMS settings from localStorage', e);
+        }
+    }
+
+    async persistSmsSettings() {
+        // Save locally first so UI feels instant
+        try {
+            localStorage.setItem('heatMonitorSmsSettings', JSON.stringify(this.smsSettings));
+        } catch (e) {
+            console.warn('Failed to save SMS settings to localStorage', e);
+        }
+
+        // Then push to backend so it’s stored in DB
+        try {
+            await fetch(`${this.apiBase}/sms-settings`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(this.smsSettings),
+            });
+        } catch (e) {
+            console.warn('Failed to persist SMS settings to backend', e);
+        }
+    }
+
+    checkHeatIndexAlerts() {
+        if (!this.smsSettings.enableAlerts) return;
+        // Placeholder: hook into backend SMS sending here based on this.data / thresholds.
+    }
 }
 
 // Initialize dashboard
