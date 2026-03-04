@@ -1,3 +1,5 @@
+//comments
+
 class HeatMonitorDashboard {
     constructor() {
         this.ws = null;
