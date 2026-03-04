@@ -23,7 +23,9 @@ class HeatMonitorDashboard {
                 extremeDanger: true
             },
             cooldownMinutes: 30,
-            lastAlertTimes: {}
+            lastAlertTimes: {},
+            customAlerts: [], // Custom temperature/heat index alerts
+            scheduledAlerts: [] // Time-based scheduled alerts
         };
         
         // Self-ping settings
@@ -437,12 +439,15 @@ class HeatMonitorDashboard {
         testBtn.onclick = () => this.testSms();
         addBtn.onclick = () => this.addPhoneNumber();
 
-        // Handle Enter key in phone number input
+        // Add phone number event listeners
+        document.getElementById('addPhoneNumber').addEventListener('click', () => this.addPhoneNumber());
         document.getElementById('newPhoneNumber').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.addPhoneNumber();
-            }
+            if (e.key === 'Enter') this.addPhoneNumber();
         });
+        
+        // Custom and scheduled alert event listeners
+        document.getElementById('addCustomAlert').addEventListener('click', () => this.addCustomAlert());
+        document.getElementById('addScheduledAlert').addEventListener('click', () => this.addScheduledAlert());
 
         window.onclick = (event) => {
             if (event.target === modal) {
@@ -463,13 +468,12 @@ class HeatMonitorDashboard {
     }
 
     populateSmsForm() {
-        this.renderPhoneNumbersList();
-        document.getElementById('enableAlerts').checked = this.smsSettings.enableAlerts;
-        document.getElementById('cautionAlert').checked = this.smsSettings.thresholds.caution;
-        document.getElementById('extremeCautionAlert').checked = this.smsSettings.thresholds.extremeCaution;
-        document.getElementById('dangerAlert').checked = this.smsSettings.thresholds.danger;
-        document.getElementById('extremeDangerAlert').checked = this.smsSettings.thresholds.extremeDanger;
         document.getElementById('cooldownMinutes').value = this.smsSettings.cooldownMinutes;
+        document.getElementById('enableAlerts').checked = this.smsSettings.enableAlerts;
+        
+        this.renderPhoneNumbersList();
+        this.renderCustomAlerts();
+        this.renderScheduledAlerts();
     }
 
     saveSmsSettings() {
@@ -479,17 +483,139 @@ class HeatMonitorDashboard {
         this.smsSettings.thresholds.danger = document.getElementById('dangerAlert').checked;
         this.smsSettings.thresholds.extremeDanger = document.getElementById('extremeDangerAlert').checked;
         this.smsSettings.cooldownMinutes = parseInt(document.getElementById('cooldownMinutes').value);
+        
+        // Save custom and scheduled alerts from form inputs
+        this.saveCustomAlertsFromForm();
+        this.saveScheduledAlertsFromForm();
 
-        localStorage.setItem('smsSettings', JSON.stringify(this.smsSettings));
-        this.showAlert('SMS settings saved successfully!', 'success');
-        this.closeSmsModal();
+        // Save to backend instead of localStorage
+        this.saveSmsSettings();
+    }
+
+    saveCustomAlertsFromForm() {
+        const container = document.getElementById('customAlertsContainer');
+        const rows = container.querySelectorAll('.custom-alert-row');
+        
+        this.smsSettings.customAlerts = [];
+        rows.forEach((row, index) => {
+            const type = row.querySelector('select:nth-child(1)').value;
+            const condition = row.querySelector('select:nth-child(2)').value;
+            const value = parseFloat(row.querySelector('input[type="number"]').value);
+            const message = row.querySelector('input[type="text"]').value;
+            
+            this.smsSettings.customAlerts.push({
+                id: Date.now() + index,
+                type,
+                condition,
+                value,
+                message
+            });
+        });
+    }
+
+    saveScheduledAlertsFromForm() {
+        const container = document.getElementById('scheduledAlertsContainer');
+        const rows = container.querySelectorAll('.scheduled-alert-row');
+        
+        this.smsSettings.scheduledAlerts = [];
+        rows.forEach((row, index) => {
+            const time = row.querySelector('input[type="time"]').value;
+            const message = row.querySelector('input[type="text"]').value;
+            
+            this.smsSettings.scheduledAlerts.push({
+                id: Date.now() + index,
+                time,
+                message
+            });
+        });
     }
 
     loadSmsSettings() {
-        const saved = localStorage.getItem('smsSettings');
-        if (saved) {
-            this.smsSettings = JSON.parse(saved);
+        this.fetchSmsSettings();
+    }
+
+    async fetchSmsSettings() {
+        try {
+            const response = await fetch('https://backvolts.onrender.com/api/v1/sms-settings');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.smsSettings = {
+                        phoneNumbers: data.data.phoneNumbers || [],
+                        enableAlerts: data.data.enableAlerts || false,
+                        thresholds: data.data.thresholds || {
+                            caution: true,
+                            extremeCaution: true,
+                            danger: true,
+                            extremeDanger: true
+                        },
+                        cooldownMinutes: data.data.cooldownMinutes || 30,
+                        lastAlertTimes: data.data.lastAlertTimes || {},
+                        customAlerts: data.data.customAlerts || [],
+                        scheduledAlerts: data.data.scheduledAlerts || []
+                    };
+                    console.log('✅ SMS settings loaded from backend:', this.smsSettings);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading SMS settings:', error);
+            // Set default values if backend fails
+            this.setDefaultSmsSettings();
         }
+    }
+
+    async saveSmsSettings() {
+        try {
+            const response = await fetch('https://backvolts.onrender.com/api/v1/sms-settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phoneNumbers: this.smsSettings.phoneNumbers,
+                    enableAlerts: this.smsSettings.enableAlerts,
+                    thresholds: this.smsSettings.thresholds,
+                    cooldownMinutes: this.smsSettings.cooldownMinutes,
+                    customAlerts: this.smsSettings.customAlerts,
+                    scheduledAlerts: this.smsSettings.scheduledAlerts
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    console.log('✅ SMS settings saved to backend');
+                    this.closeSmsModal();
+                    this.showAlert('SMS settings saved successfully!', 'success');
+                } else {
+                    console.error('❌ Backend error:', data.message);
+                    this.showAlert('Failed to save SMS settings: ' + data.message, 'error');
+                }
+            } else {
+                console.error('❌ HTTP error:', response.status);
+                this.showAlert('Failed to save SMS settings', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error saving SMS settings:', error);
+            this.showAlert('Failed to save SMS settings', 'error');
+        }
+    }
+
+    setDefaultSmsSettings() {
+        this.smsSettings = {
+            phoneNumbers: [],
+            enableAlerts: false,
+            thresholds: {
+                caution: true,
+                extremeCaution: true,
+                danger: true,
+                extremeDanger: true
+            },
+            cooldownMinutes: 30,
+            lastAlertTimes: {},
+            customAlerts: [],
+            scheduledAlerts: []
+        };
     }
 
     async testSms() {
@@ -509,32 +635,58 @@ class HeatMonitorDashboard {
             return;
         }
 
-        const heatIndex = latestData.heatIndex;
-        const temp = latestData.temperature;
-        const humidity = latestData.humidity;
-        const lightCategory = this.getLightCategory(latestData.light);
+        // Check custom alerts
+        this.checkCustomAlerts(latestData);
+        
+        // Check scheduled alerts
+        this.checkScheduledAlerts(latestData);
+    }
 
-        let alertLevel = null;
-        let message = '';
+    checkCustomAlerts(data) {
+        this.smsSettings.customAlerts.forEach(alert => {
+            let shouldTrigger = false;
+            
+            // Get the appropriate value based on metric
+            const currentValue = alert.metric === 'temperature' ? data.temperature : data.heatIndex;
+            
+            // Check condition
+            if (alert.condition === 'greater') {
+                shouldTrigger = currentValue >= alert.value;
+            } else if (alert.condition === 'less') {
+                shouldTrigger = currentValue <= alert.value;
+            } else if (alert.condition === 'equal') {
+                shouldTrigger = currentValue === alert.value;
+            }
 
-        if (heatIndex >= 42 && this.smsSettings.thresholds.extremeDanger) {
-            alertLevel = 'extremeDanger';
-            message = `[EMERGENCY] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nExtreme heat. Stay inside, monitor everyone for heat illness, and act immediately if needed.`;
-        } else if (heatIndex >= 40 && this.smsSettings.thresholds.danger) {
-            alertLevel = 'danger';
-            message = `[EMERGENCY] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nSevere heat. Stay indoors, hydrate often, and avoid outdoor activity.`;
-        } else if (heatIndex >= 35 && this.smsSettings.thresholds.extremeCaution) {
-            alertLevel = 'extremeCaution';
-            message = `[ALERT] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nHigh heat. Minimize outdoor activity, drink water, and watch children, seniors, and pets.`;
-        } else if (heatIndex >= 27 && this.smsSettings.thresholds.caution) {
-            alertLevel = 'caution';
-            message = `[ALERT] Heat index: ${heatIndex}C | Temp: ${temp}C | Humidity: ${humidity}% | Light: ${lightCategory}\nHeat rising. Stay hydrated, take breaks in shade, and limit outdoor activity.`;
-        }
+            if (shouldTrigger && this.shouldSendAlert(`custom_${alert.id}`)) {
+                const message = alert.message
+                    .replace('{temp}', data.temperature)
+                    .replace('{heatIndex}', data.heatIndex)
+                    .replace('{humidity}', data.humidity)
+                    .replace('{light}', this.getLightCategory(data.light));
+                
+                this.sendSms(message);
+                this.updateLastAlertTime(`custom_${alert.id}`);
+            }
+        });
+    }
 
-        if (alertLevel && this.shouldSendAlert(alertLevel)) {
-            this.sendSms(message);
-            this.updateLastAlertTime(alertLevel);
-        }
+    checkScheduledAlerts(data) {
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        this.smsSettings.scheduledAlerts.forEach(alert => {
+            if (alert.time === currentTime && this.shouldSendAlert(`scheduled_${alert.id}`)) {
+                const message = alert.message
+                    .replace('{temp}', data.temperature)
+                    .replace('{heatIndex}', data.heatIndex)
+                    .replace('{humidity}', data.humidity)
+                    .replace('{light}', this.getLightCategory(data.light));
+                
+                this.sendSms(message);
+                this.updateLastAlertTime(`scheduled_${alert.id}`);
+            }
+        });
     }
 
     shouldSendAlert(alertLevel) {
@@ -590,10 +742,7 @@ class HeatMonitorDashboard {
         this.smsSettings.phoneNumbers.forEach((phoneNumber, index) => {
             const row = document.createElement('div');
             row.className = 'phone-number-row';
-            row.innerHTML = `
-                <span>${phoneNumber}</span>
-                <span><button class="btn-remove" data-index="${index}">Remove</button></span>
-            `;
+            row.innerHTML = '<span>' + phoneNumber + '</span><span><button class="btn-remove" data-index="' + index + '" title="Remove"><i class="bi bi-trash"></i></button></span>';
             listContainer.appendChild(row);
         });
 
@@ -620,6 +769,372 @@ class HeatMonitorDashboard {
     removePhoneNumber(index) {
         this.smsSettings.phoneNumbers.splice(index, 1);
         this.renderPhoneNumbersList();
+    }
+
+    // Custom Alert Management
+    addCustomAlert() {
+        // Create modal for structured input
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+        `;
+        
+        modalContent.innerHTML = '<h3 style="margin: 0 0 20px 0; color: #2c3e50;">Add Custom Alert</h3><div><div style="margin-bottom: 15px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Metric:</label><select id="alertMetric" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"><option value="temperature">Temperature</option><option value="heatIndex">Heat Index</option></select></div><div style="margin-bottom: 15px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Condition:</label><select id="alertCondition" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"><option value="greater">Greater than or equal to (≥)</option><option value="less">Less than or equal to (≤)</option><option value="equal">Equal to (=)</option></select></div><div style="margin-bottom: 15px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Value:</label><input type="number" id="alertValue" placeholder="Enter value" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></div><div style="margin-bottom: 20px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Message:</label><textarea id="alertMessage" placeholder="Enter message (use {temp}, {heatIndex}, {humidity}, {light} as variables)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 60px; resize: vertical;"></textarea></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button onclick="window.dashboard.saveCustomAlertFromModal()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Save</button><button onclick="window.dashboard.closeCustomAlertModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button></div>';
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Store modal reference
+        this.customAlertModal = modal;
+    }
+
+    saveCustomAlertFromModal() {
+        const metric = document.getElementById('alertMetric').value;
+        const condition = document.getElementById('alertCondition').value;
+        const value = parseFloat(document.getElementById('alertValue').value);
+        const message = document.getElementById('alertMessage').value;
+        
+        if (!metric || !condition || isNaN(value) || !message) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        const alert = {
+            id: Date.now(),
+            metric,
+            condition,
+            value,
+            message
+        };
+        
+        this.smsSettings.customAlerts.push(alert);
+        this.renderCustomAlerts();
+        this.closeCustomAlertModal();
+        this.showAlert('Custom alert added!', 'success');
+    }
+
+    closeCustomAlertModal() {
+        if (this.customAlertModal) {
+            document.body.removeChild(this.customAlertModal);
+            this.customAlertModal = null;
+        }
+    }
+
+    editCustomAlert(id) {
+        const alert = this.smsSettings.customAlerts.find(a => a.id === id);
+        if (!alert) return;
+        
+        // Create edit modal with pre-filled values
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+        `;
+        
+        modalContent.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; color: #2c3e50;">Edit Custom Alert</h3>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Metric:</label>
+                <select id="editAlertMetric" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="temperature" ${alert.metric === 'temperature' ? 'selected' : ''}>Temperature</option>
+                    <option value="heatIndex" ${alert.metric === 'heatIndex' ? 'selected' : ''}>Heat Index</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Condition:</label>
+                <select id="editAlertCondition" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="greater" ${alert.condition === 'greater' ? 'selected' : ''}>Greater than or equal to (≥)</option>
+                    <option value="less" ${alert.condition === 'less' ? 'selected' : ''}>Less than or equal to (≤)</option>
+                    <option value="equal" ${alert.condition === 'equal' ? 'selected' : ''}>Equal to (=)</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Value:</label>
+                <input type="number" id="editAlertValue" value="${alert.value}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Message:</label>
+                <textarea id="editAlertMessage" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 60px; resize: vertical;">${alert.message}</textarea>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="window.dashboard.updateCustomAlertFromModal(${id})" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Update</button>
+                <button onclick="window.dashboard.closeCustomAlertModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Store modal reference
+        this.customAlertModal = modal;
+    }
+
+    updateCustomAlertFromModal(id) {
+        const metric = document.getElementById('editAlertMetric').value;
+        const condition = document.getElementById('editAlertCondition').value;
+        const value = parseFloat(document.getElementById('editAlertValue').value);
+        const message = document.getElementById('editAlertMessage').value;
+        
+        if (!metric || !condition || isNaN(value) || !message) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        const alertIndex = this.smsSettings.customAlerts.findIndex(a => a.id === id);
+        if (alertIndex !== -1) {
+            this.smsSettings.customAlerts[alertIndex] = {
+                id,
+                metric,
+                condition,
+                value,
+                message
+            };
+        }
+        
+        this.renderCustomAlerts();
+        this.closeCustomAlertModal();
+        this.showAlert('Custom alert updated!', 'success');
+    }
+
+    removeCustomAlert(id) {
+        if (confirm('Are you sure you want to delete this custom alert?')) {
+            this.smsSettings.customAlerts = this.smsSettings.customAlerts.filter(alert => alert.id !== id);
+            this.renderCustomAlerts();
+            this.showAlert('Custom alert deleted!', 'success');
+        }
+    }
+
+    renderCustomAlerts() {
+        const container = document.getElementById('customAlertsContainer');
+        if (!container) {
+            console.error('Custom alerts container not found!');
+            return;
+        }
+
+        container.innerHTML = '';
+
+        if (!this.smsSettings.customAlerts || this.smsSettings.customAlerts.length === 0) {
+            container.innerHTML = '<p style="color: #6c757d; font-style: italic;">No custom alerts configured</p>';
+            return;
+        }
+
+        this.smsSettings.customAlerts.forEach(alert => {
+            const item = document.createElement('div');
+            item.className = 'custom-alert-item';
+            item.innerHTML =
+                '<div class="custom-alert-info">' +
+                '<div class="custom-alert-condition">' + alert.metric + ' ' + alert.condition + ' ' + alert.value + '</div>' +
+                '<div class="custom-alert-message">' + alert.message + '</div>' +
+                '</div>' +
+                '<div class="custom-alert-actions">' +
+                '<button class="btn-edit" onclick="window.dashboard.editCustomAlert(' + alert.id + ')"><i class="bi bi-pencil"></i></button>' +
+                '<button class="btn-delete" onclick="window.dashboard.removeCustomAlert(' + alert.id + ')"><i class="bi bi-trash"></i></button>' +
+                '</div>';
+
+            container.appendChild(item);
+        });
+    }
+
+// ... (rest of the code remains the same)
+    // Scheduled Alert Management
+    addScheduledAlert() {
+        // Create modal for structured input
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+        `;
+        
+        modalContent.innerHTML = '<h3 style="margin: 0 0 20px 0; color: #2c3e50;">Add Scheduled Alert</h3><div style="margin-bottom: 15px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Time:</label><input type="time" id="alertTime" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></div><div style="margin-bottom: 20px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Message:</label><textarea id="alertMessage" placeholder="Enter message (use {temp}, {heatIndex}, {humidity}, {light} as variables)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 60px; resize: vertical;"></textarea></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button onclick="window.dashboard.saveScheduledAlertFromModal()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Save</button><button onclick="window.dashboard.closeScheduledAlertModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button></div>';
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Store modal reference
+        this.scheduledAlertModal = modal;
+    }
+
+    saveScheduledAlertFromModal() {
+        const time = document.getElementById('alertTime').value;
+        const message = document.getElementById('alertMessage').value;
+        
+        if (!time || !message) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        const alert = {
+            id: Date.now(),
+            time,
+            message
+        };
+        
+        this.smsSettings.scheduledAlerts.push(alert);
+        this.renderScheduledAlerts();
+        this.closeScheduledAlertModal();
+        this.showAlert('Scheduled alert added!', 'success');
+    }
+
+    closeScheduledAlertModal() {
+        if (this.scheduledAlertModal) {
+            document.body.removeChild(this.scheduledAlertModal);
+            this.scheduledAlertModal = null;
+        }
+    }
+
+    removeScheduledAlert(id) {
+        if (confirm('Are you sure you want to delete this scheduled alert?')) {
+            this.smsSettings.scheduledAlerts = this.smsSettings.scheduledAlerts.filter(alert => alert.id !== id);
+            this.renderScheduledAlerts();
+            this.showAlert('Scheduled alert deleted!', 'success');
+        }
+    }
+
+    editScheduledAlert(id) {
+        const alert = this.smsSettings.scheduledAlerts.find(a => a.id === id);
+        if (!alert) return;
+        
+        // Create edit modal with pre-filled values
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+        `;
+        
+        modalContent.innerHTML = '<h3 style="margin: 0 0 20px 0; color: #2c3e50;">Edit Scheduled Alert</h3><div style="margin-bottom: 15px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Time:</label><input type="time" id="editAlertTime" value="' + alert.time + '" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></div><div style="margin-bottom: 20px;"><label style="display: block; margin-bottom: 5px; font-weight: 600;">Message:</label><textarea id="editAlertMessage" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 60px; resize: vertical;">' + alert.message + '</textarea></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button onclick="window.dashboard.updateScheduledAlertFromModal(' + alert.id + ')" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Update</button><button onclick="window.dashboard.closeScheduledAlertModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button></div>';
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Store modal reference
+        this.scheduledAlertModal = modal;
+    }
+
+    updateScheduledAlertFromModal(id) {
+        const time = document.getElementById('editAlertTime').value;
+        const message = document.getElementById('editAlertMessage').value;
+        
+        if (!time || !message) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        const alertIndex = this.smsSettings.scheduledAlerts.findIndex(a => a.id === id);
+        if (alertIndex !== -1) {
+            this.smsSettings.scheduledAlerts[alertIndex] = {
+                id,
+                time,
+                message
+            };
+        }
+        
+        this.renderScheduledAlerts();
+        this.closeScheduledAlertModal();
+        this.showAlert('Scheduled alert updated!', 'success');
+    }
+
+    renderScheduledAlerts() {
+        const container = document.getElementById('scheduledAlertsContainer');
+        if (!container) {
+            console.error('Scheduled alerts container not found!');
+            return;
+        }
+        
+        container.innerHTML = '';
+
+        if (!this.smsSettings.scheduledAlerts || this.smsSettings.scheduledAlerts.length === 0) {
+            container.innerHTML = '<p style="color: #6c757d; font-style: italic;">No scheduled alerts configured</p>';
+            return;
+        }
+
+        this.smsSettings.scheduledAlerts.forEach(alert => {
+            const item = document.createElement('div');
+            item.className = 'custom-alert-item';
+            item.innerHTML =
+                '<div class="custom-alert-info">' +
+                '<div class="custom-alert-condition">' + alert.time + '</div>' +
+                '<div class="custom-alert-message">' + alert.message + '</div>' +
+                '</div>' +
+                '<div class="custom-alert-actions">' +
+                '<button class="btn-edit" onclick="window.dashboard.editScheduledAlert(' + alert.id + ')"><i class="bi bi-pencil"></i></button>' +
+                '<button class="btn-delete" onclick="window.dashboard.removeScheduledAlert(' + alert.id + ')"><i class="bi bi-trash"></i></button>' +
+                '</div>';
+
+            container.appendChild(item);
+        });
     }
 
     // Light level categorization
@@ -727,5 +1242,8 @@ class HeatMonitorDashboard {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new HeatMonitorDashboard();
+    const dashboard = new HeatMonitorDashboard();
+    
+    // Expose dashboard to window for global access
+    window.dashboard = dashboard;
 });

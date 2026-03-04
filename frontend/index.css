@@ -261,13 +261,18 @@ header h1 {
 
 .modal-content {
     background: white;
-    margin: 5% auto;
+    margin: 0 auto;
     padding: 0;
-    border-radius: 15px;
+    position: fixed;
     width: 90%;
     max-width: 450px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: modalSlideIn 0.3s ease-out;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-content.compact {
@@ -457,20 +462,59 @@ header h1 {
     color: #adb5bd;
 }
 
-.btn-add {
-    background: #28a745;
+.custom-alert-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: flex-start;
+}
+
+.scheduled-alert-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: flex-start;
+}
+
+.btn-icon-only {
+    background: #667eea;
     color: white;
     border: none;
-    padding: 0 16px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     font-size: 1.2rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background 0.3s ease;
-    min-width: 40px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 8px;
+    padding: 0;
 }
 
-.btn-add:hover {
-    background: #218838;
+.btn-icon-only i {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.btn-icon-only:hover {
+    background: #5a67d8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-icon-only:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.custom-alert-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: flex-start;
 }
 
 .phone-numbers-list::-webkit-scrollbar {
@@ -498,6 +542,103 @@ header h1 {
     padding: 12px;
     background: #f8f9fa;
     border-radius: 8px;
+}
+
+.custom-alerts-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+}
+
+.custom-alert-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.custom-alert-item:hover {
+    background: #f1f3f4;
+    border-color: #667eea;
+}
+
+.custom-alert-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.custom-alert-condition {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.custom-alert-message {
+    color: #6c757d;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.custom-alert-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-edit, .btn-delete {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.btn-edit {
+    background: #667eea;
+    color: white;
+}
+
+.btn-edit:hover {
+    background: #5a67d8;
+    transform: translateY(-1px);
+}
+
+.btn-delete {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-delete:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.form-group h4 {
+    margin: 0 0 12px 0;
+    color: #2c3e50;
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group h4::before {
+    content: '📋';
+    font-size: 1.1rem;
 }
 
 .thresholds-grid label {
@@ -557,3 +698,55 @@ header h1 {
     background: #dee2e6;
 }
   
+/* ========================= */
+/* ICON IMPROVEMENTS */
+/* ========================= */
+
+h1 i,
+h2 i,
+h3 i,
+h4 i,
+button i {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.status-text i {
+    margin-right: 6px;
+}
+
+/* Remove old emoji before h4 (you now use Bootstrap icons) */
+.form-group h4::before {
+    content: none;
+}
+
+/* Better icon button alignment */
+.btn-primary i,
+.btn-secondary i,
+.btn-cancel i,
+.sms-settings-btn i {
+    margin-right: 6px;
+}
+
+/* Icon inside circular button fix */
+.btn-icon-only i {
+    margin: 0;
+}
+
+/* Improve modal animation (fix transform conflict) */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -55%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Slight smooth hover polish */
+.chart-container:hover,
+.sensor-card:hover {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}

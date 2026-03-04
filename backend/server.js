@@ -12,7 +12,10 @@ const { WebSocketServer } = require('ws');
 // Import your data routes
 const dataRoutes = require('./routes/dataRoutes');
 const smsRoutes = require('./routes/smsRoutes');
+const customAlertRoutes = require('./routes/customAlertRoutes');
+const smsSettingsRoutes = require('./routes/smsSettingsRoutes');
 const Data = require('./models/Data');
+const SmsSettings = require('./models/SmsSettings');
 
 const app = express();
 
@@ -27,6 +30,8 @@ app.use(express.json());
 const requestMapper = '/api/v1';
 app.use(requestMapper + '/data', dataRoutes);
 app.use(requestMapper + '/sms', smsRoutes);
+app.use(requestMapper + '/custom-alerts', customAlertRoutes);
+app.use(requestMapper + '/sms-settings', smsSettingsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
