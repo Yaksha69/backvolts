@@ -1,4 +1,4 @@
-class HeatMonitorDashboard {
+﻿class HeatMonitorDashboard {
     constructor() {
         this.ws = null;
         this.tempChart = null;
